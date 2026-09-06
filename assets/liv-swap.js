@@ -1,17 +1,17 @@
 (function(){
-  const files={
-    "portrait.jpg":"/media/liv/portrait.b64",
-    "hero.jpg":"/media/liv/hero.b64",
-    "closeup.jpg":"/media/liv/closeup.b64",
-    "chalkboard.jpg":"/media/liv/chalkboard.b64",
-    "notes.jpg":"/media/liv/notes.b64",
-    "welcome.mp4":"/media/liv/welcome.mp4.b64",
-    "talking.mp4":"/media/liv/talking.mp4.b64",
-    "teaching.mp4":"/media/liv/teaching.mp4.b64",
-    "notes.mp4":"/media/liv/notes.mp4.b64"
+  const parts={
+    "portrait.jpg":["/media/liv/portrait.jpg.b64.1","/media/liv/portrait.jpg.b64.2"],
+    "hero.jpg":["/media/liv/hero.jpg.b64"],
+    "closeup.jpg":["/media/liv/closeup.jpg.b64"],
+    "chalkboard.jpg":["/media/liv/chalkboard.jpg.b64.1","/media/liv/chalkboard.jpg.b64.2"],
+    "notes.jpg":["/media/liv/notes.jpg.b64.1","/media/liv/notes.jpg.b64.2"],
+    "welcome.mp4":["/media/liv/welcome.mp4.b64.1","/media/liv/welcome.mp4.b64.2"],
+    "talking.mp4":["/media/liv/talking.mp4.b64"],
+    "teaching.mp4":["/media/liv/teaching.mp4.b64.1","/media/liv/teaching.mp4.b64.2"],
+    "notes.mp4":["/media/liv/notes.mp4.b64.1","/media/liv/notes.mp4.b64.2"]
   };
   const cache={};
-  function decode(b64,mime){
+  function toUrl(b64,mime){
     const clean=b64.replace(/\s+/g,"");
     const bin=atob(clean);
     const arr=new Uint8Array(bin.length);
@@ -20,17 +20,18 @@
   }
   async function load(name){
     if(cache[name]) return cache[name];
-    const res=await fetch(files[name],{cache:"force-cache"});
-    const b64=await res.text();
+    const urls=parts[name];
+    const chunks=await Promise.all(urls.map(u=>fetch(u,{cache:"force-cache"}).then(r=>r.text())));
+    const b64=chunks.join("");
     const mime=name.endsWith(".mp4")?"video/mp4":"image/jpeg";
-    cache[name]=decode(b64,mime);
+    cache[name]=toUrl(b64,mime);
     return cache[name];
   }
   function matchName(url){
     if(!url||url.indexOf("/media/elsa/")===-1) return null;
     const path=url.split("?")[0];
     const name=path.slice(path.lastIndexOf("/")+1);
-    return files[name]?name:null;
+    return parts[name]?name:null;
   }
   async function patchNode(el){
     if(!el||!el.tagName) return;
@@ -53,23 +54,19 @@
     }
   }
   async function scan(){
-    const nodes=document.querySelectorAll("img,video,source");
-    for(const el of nodes) await patchNode(el);
+    document.querySelectorAll("img,video,source").forEach(patchNode);
   }
-  const mo=new MutationObserver((muts)=>{
+  new MutationObserver((muts)=>{
     for(const m of muts){
       if(m.type==="attributes") patchNode(m.target);
-      if(m.type==="childList"){
-        m.addedNodes.forEach((n)=>{
-          if(n.nodeType===1){
-            patchNode(n);
-            if(n.querySelectorAll) n.querySelectorAll("img,video,source").forEach(patchNode);
-          }
-        });
-      }
+      if(m.type==="childList") m.addedNodes.forEach((n)=>{
+        if(n.nodeType===1){
+          patchNode(n);
+          if(n.querySelectorAll) n.querySelectorAll("img,video,source").forEach(patchNode);
+        }
+      });
     }
-  });
-  mo.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:["src","poster"]});
+  }).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:["src","poster"]});
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",scan);
   else scan();
   setInterval(scan,1200);
