@@ -12,7 +12,7 @@
   };
   const cache={};
   function toUrl(b64,mime){
-    let clean=b64.replace(/\s+/g,"");
+    let clean=String(b64||"").replace(/\s+/g,"");
     while(clean.length%4) clean+="=";
     const bin=atob(clean);
     const arr=new Uint8Array(bin.length);
@@ -23,7 +23,7 @@
     if(cache[name]) return cache[name];
     const urls=parts[name];
     if(!urls) return null;
-    const chunks=await Promise.all(urls.map(u=>fetch(u,{cache:"no-store"}).then(r=>{
+    const chunks=await Promise.all(urls.map(u=>fetch(u,{cache:"force-cache"}).then(r=>{
       if(!r.ok) throw new Error(u);
       return r.text();
     })));
