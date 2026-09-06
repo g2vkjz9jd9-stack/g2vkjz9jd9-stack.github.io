@@ -20,15 +20,30 @@
   }
   async function load(name){
     if(cache[name]) return cache[name];
+    const direct="/media/liv/"+name;
+    try{
+      const r=await fetch(direct,{cache:"force-cache"});
+      if(r.ok){
+        const blob=await r.blob();
+        if(blob.size>32){
+          cache[name]=URL.createObjectURL(blob);
+          return cache[name];
+        }
+      }
+    }catch(e){}
     const urls=parts[name];
-    const chunks=await Promise.all(urls.map(u=>fetch(u,{cache:"force-cache"}).then(r=>r.text())));
+    const chunks=await Promise.all(urls.map(u=>fetch(u,{cache:"force-cache"}).then(r=>{
+      if(!r.ok) throw new Error(u);
+      return r.text();
+    })));
     const b64=chunks.join("");
     const mime=name.endsWith(".mp4")?"video/mp4":"image/jpeg";
     cache[name]=toUrl(b64,mime);
     return cache[name];
   }
   function matchName(url){
-    if(!url||url.indexOf("/media/elsa/")===-1) return null;
+    if(!url) return null;
+    if(url.indexOf("/media/elsa/")===-1 && url.indexOf("/media/liv/")===-1) return null;
     const path=url.split("?")[0];
     const name=path.slice(path.lastIndexOf("/")+1);
     return parts[name]?name:null;
@@ -40,21 +55,39 @@
       const raw=el.getAttribute("src")||el.src||"";
       const name=matchName(raw);
       if(name){
-        const url=await load(name);
-        if(el.src!==url) el.src=url;
+        try{
+          const url=await load(name);
+          if(el.src!==url) el.src=url;
+        }catch(e){}
       }
     }
     if(tag==="VIDEO"||tag==="IMG"){
       const raw=el.getAttribute("poster")||el.poster||"";
       const name=matchName(raw);
       if(name){
-        const url=await load(name);
-        if(el.poster!==url) el.poster=url;
+        try{
+          const url=await load(name);
+          if(el.poster!==url) el.poster=url;
+        }catch(e){}
       }
+    }
+    if(el.getAttribute){
+      const alt=el.getAttribute("alt")||"";
+      if(alt.indexOf("Elsa Voss")!==-1) el.setAttribute("alt",alt.replaceAll("Elsa Voss","Liv Hale"));
+    }
+  }
+  function patchText(root){
+    if(!root) return;
+    const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    let n;
+    while(n=w.nextNode()){
+      const v=n.nodeValue;
+      if(v&&v.indexOf("Elsa Voss")!==-1) n.nodeValue=v.replaceAll("Elsa Voss","Liv Hale");
     }
   }
   async function scan(){
     document.querySelectorAll("img,video,source").forEach(patchNode);
+    patchText(document.body);
   }
   new MutationObserver((muts)=>{
     for(const m of muts){
@@ -62,11 +95,15 @@
       if(m.type==="childList") m.addedNodes.forEach((n)=>{
         if(n.nodeType===1){
           patchNode(n);
+          patchText(n);
           if(n.querySelectorAll) n.querySelectorAll("img,video,source").forEach(patchNode);
+        }else if(n.nodeType===3){
+          if(n.nodeValue&&n.nodeValue.indexOf("Elsa Voss")!==-1)
+            n.nodeValue=n.nodeValue.replaceAll("Elsa Voss","Liv Hale");
         }
       });
     }
-  }).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:["src","poster"]});
+  }).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:["src","poster","alt"]});
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",scan);
   else scan();
   setInterval(scan,1200);
