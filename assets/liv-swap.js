@@ -4,11 +4,16 @@
     "hero.jpg":["/media/liv/hero.jpg.b64"],
     "closeup.jpg":["/media/liv/closeup.jpg.b64"],
     "chalkboard.jpg":["/media/liv/chalkboard.jpg.b64"],
-    "notes.jpg":["/media/liv/notes.jpg.b64"]
+    "notes.jpg":["/media/liv/notes.jpg.b64"],
+    "welcome.mp4":["/media/liv/welcome.mp4.b64"],
+    "talking.mp4":["/media/liv/talking.mp4.b64"],
+    "teaching.mp4":["/media/liv/teaching.mp4.b64"],
+    "notes.mp4":["/media/liv/notes.mp4.b64"]
   };
   const cache={};
   function toUrl(b64,mime){
-    const clean=b64.replace(/\s+/g,"");
+    let clean=b64.replace(/\s+/g,"");
+    while(clean.length%4) clean+="=";
     const bin=atob(clean);
     const arr=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
@@ -18,7 +23,7 @@
     if(cache[name]) return cache[name];
     const urls=parts[name];
     if(!urls) return null;
-    const chunks=await Promise.all(urls.map(u=>fetch(u,{cache:"force-cache"}).then(r=>{
+    const chunks=await Promise.all(urls.map(u=>fetch(u,{cache:"no-store"}).then(r=>{
       if(!r.ok) throw new Error(u);
       return r.text();
     })));
